@@ -17,6 +17,7 @@ library(plotly)
 library(purrr)
 library(stringr)
 library(broom)
+library(patchwork)
 
 
 knitr::opts_chunk$set(
@@ -220,7 +221,7 @@ sim_ttest = function(n, mu = 0, sigma = 5) {
 }
 ```
 
-Trying a 'for loop' here now.
+### Trying a 'for loop' here now.
 
 ```{r}
 output = vector("list", 5000)
@@ -231,7 +232,7 @@ for (i in 1:5000) {
 sim_results = bind_rows(output)
 ```
 
-Testing the function and simulating 
+## Testing the function and simulating 5000 times
 
 ```{r, cache= TRUE}
 sim_results_test =
@@ -239,7 +240,7 @@ sim_results_test =
   bind_rows()
 ```
 
-Simulating across multiple means
+## Simulating across multiple means
 
 ```{r}
 mu_list =
@@ -259,8 +260,10 @@ for (i in 1:7) {
 }
 ```
 
+## Creating the reject and fail to reject columns.
+
 ```{r}
-plot_data_sum =
+p3_plot1_df =
   bind_rows(mu_output) %>% 
   group_by(true_mu) %>% 
   mutate(
@@ -281,7 +284,7 @@ plot_data_sum =
 ### Plot 1
 
 ```{r}
-p3_plot1 = plot_data_sum %>% 
+p3_plot1 = p3_plot1_df %>% 
   ggplot(aes(x = true_mu, y = power)) + 
   geom_point() + 
   geom_line() + 
@@ -302,8 +305,9 @@ This plot demonstrates in a provided sample with standard deviation, the greater
 ### Plot 2
 
 Building back the initial data set to return to the estimate and true mu.  
+
 ```{r}
-plot_data_raw =
+p3_plot2_df =
   bind_rows(mu_output) %>% 
   group_by(true_mu) %>% 
   mutate(
@@ -314,19 +318,71 @@ plot_data_raw =
     test_outcome = as.factor(test_outcome))
 ```
 
+Thinking about how to get the mean estimate in each true mu. 
+Pivot wider? Helps to see it but I don't think this will work.  
+
 ```{r}
-p3_plot2 = plot_data_raw %>% 
-  ggplot(aes(x = true_mu, y = estimate)) + 
+p3_wide_df = p3_plot2_df %>% 
+  pivot_wider(
+    names_from = true_mu,
+    values_from = estimate,
+    names_prefix = "var")
+```
+
+Group_by and then summarize will probably work better here.  
+
+```{r}
+p3_plot2a_df = p3_plot2_df %>% 
+  group_by(true_mu) %>% 
+  summarize(
+    mean_estimate = mean(estimate)
+  )
+```
+
+#### Plot 2A
+
+```{r}
+p3_plot2a = 
+  p3_plot2a_df %>% 
+  ggplot(aes(x = true_mu, y = mean_estimate)) + 
   geom_point() + 
+  geom_line() +
   labs(
-    title = "True Mu to Estimate Mu",
-    tag = "p3_plot2"
+    title = "All Results: True Mu to Estimate Mu",
+    tag = "p3_plot2a"
   )
 
-p3_plot2
+p3_plot2a
+```
+
+#### Plot 2B
+
+```{r}
+p3_plot2b_df =
+  p3_plot2_df %>% 
+  filter(
+    test_outcome == "reject") %>% 
+  group_by(true_mu) %>% 
+  summarize(
+    mean_estimate = mean(estimate))
+
+p3_plot2b = 
+  p3_plot2b_df %>% 
+  ggplot(aes(x = true_mu, y = mean_estimate)) + 
+  geom_point() + 
+  geom_line() +
+  labs(
+    title = "Rejected Null:  True Mu to Estimate Mu",
+    tag = "p3_plot2b"
+  )
+
+p3_plot2b
 ```
 
 ```{r}
-
+p3_plot2a + p3_plot2b
 ```
 
+## Plot 2A / 2B Discussion
+
+The sample average of μ̂  across tests for which the nullis rejected is not approximately equal to the true mu.  This makes sense because if the mean of the estimates of mu were approximately equal to the true mu, you would fail to reject the null hypothesis.  
