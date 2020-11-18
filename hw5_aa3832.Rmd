@@ -102,8 +102,6 @@ homicide_plot = results_df %>%
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(title = "Unsolved Homicides in American Cities")
-
-homicide_plot
 ```
 
 ## Problem 1 -  Describing the data
@@ -141,22 +139,57 @@ path_df =
     data = map(path_df$path, read_csv))
 ```
 
-Checking now to see if this works for one... 
+Checking now to see if this works...
 
 ```{r}
 path_df$data[[1]]
 ```
 
-Nice, yes it does!
+Nice, ok yes it does!
 
-## Data wrangling, and tidying
+## Data wrangling, and tidying that involves separating a few variables and selecting columns and then unnesting. Tried to delete with str_sub but kept getting a strange error.  
 
 ```{r}
-path_df %>% 
+path_df =
+  path_df %>% 
   separate(path, into = c("lda_data", "study_arm"), sep = "/") %>% 
-  select(!lda_data) %>% 
-  separate(study_arm, into = c("study_arm", "subject"), sep = "_") %>% 
-  str_sub(subject, -3)
+  separate(study_arm, into = c("study_arm", "samp"), sep = "_") %>% 
+  separate(samp, into = c("subject", "csv", sep = ".")) %>% 
+  select(!c(lda_data, csv, .)) %>% 
+  mutate(
+    subject = as.numeric(subject),
+    study_arm = as.factor(study_arm)) %>% 
+  group_by(study_arm) %>% 
+  unnest(data)
+```
+
+Now to create the spaghetti plot, I think we'll have to pivot longer.
+
+```{r}
+path_df =
+  path_df %>% 
+  pivot_longer(week_1:week_8, 
+      names_to = "week", 
+      values_to = "observation",
+      names_prefix = "week_") %>% 
+  mutate(
+    week = as.numeric(week))
+```
+
+And now graph it.
+
+```{r}
+path_plot = 
+  path_df %>% 
+  ggplot(aes(x = week, y = observation, group = subject)) +
+    geom_line() + 
+    facet_grid(. ~ study_arm) +  
+    stat_smooth(aes(group = 1), method = "lm", se = TRUE) +
+  labs(
+    title = "Observations Over Time")
   
 ```
 
+## Problem 2 Discussion
+
+This dataset from 20 subjects from two groups, control and experimental, and taken across 8 week timepoints reflects numeric the researcher's observations. From these data, we can appreciate that over the course of 8 weeks, the observations in the experimental arm increased while those in the control arm decreased slightly.  
